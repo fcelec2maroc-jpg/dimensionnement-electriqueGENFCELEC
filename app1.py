@@ -96,16 +96,44 @@ if check_password():
         if st.button("📄 Générer PDF Liaison"):
             pdf = FCELEC_PDF()
             pdf.add_page()
-            pdf.set_font("Arial", "B", 12)
-            pdf.cell(190, 10, f"PROJET : {nom_p} - CIRCUIT : {ref_c}", ln=True, border='B')
-            pdf.ln(5)
-            pdf.set_font("Arial", "", 11)
-            pdf.cell(95, 10, f"Tension : {tension}", border=1)
-            pdf.cell(95, 10, f"Longueur : {longueur} m", border=1, ln=True)
-            pdf.cell(95, 10, f"Courant Ib : {Ib:.2f} A", border=1)
-            pdf.cell(95, 10, f"Protection In : {In} A", border=1, ln=True)
-            pdf.set_font("Arial", "B", 14)
-            pdf.cell(190, 15, f"SECTION RETENUE : {S_ret} mm2", ln=True, align="C", border=1)
+                    pdf.set_font("Helvetica", "B", 16)
+        pdf.cell(190, 15, "NOTE DE SYNTHESE ELECTRIQUE", ln=True, align="C")
+        pdf.ln(10)
+
+        # Bloc Projet
+        pdf.set_font("Helvetica", "B", 11)
+        pdf.set_fill_color(240, 240, 240)
+        pdf.cell(190, 10, f" PROJET : {nom_projet.upper()}", border=1, ln=True, fill=True)
+        pdf.cell(190, 10, f" REFERENCE CIRCUIT : {ref_circuit}", border=1, ln=True)
+        pdf.ln(5)
+
+        # Tableau de synthèse
+        pdf.set_font("Helvetica", "B", 11)
+        pdf.cell(100, 10, "CARACTERISTIQUE", border=1, align="C")
+        pdf.cell(90, 10, "VALEUR", border=1, ln=True, align="C")
+        
+        pdf.set_font("Helvetica", "", 11)
+        lignes = [
+            ("Tension de service", f"{tension_type}"),
+            ("Nature du conducteur", f"{nature_cable}"),
+            ("Longueur de liaison", f"{longueur} m"),
+            ("Intensite d'emploi (Ib)", f"{Ib:.2f} A"),
+            ("Protection conseillee (In)", f"{In} A"),
+            ("Chute de tension reelle", f"{du_pct:.2f} %"),
+            ("SECTION DE CABLE RETENUE", f"{S_retenue} mm2")
+        ]
+
+        for desc, val in lignes:
+            if "SECTION" in desc:
+                pdf.set_font("Helvetica", "B", 12)
+                pdf.set_text_color(255, 140, 0) # Couleur Orange FC ELEC
+            pdf.cell(100, 10, f" {desc}", border=1)
+            pdf.cell(90, 10, f" {val}", border=1, ln=True, align="C")
+            pdf.set_text_color(0, 0, 0)
+            pdf.set_font("Helvetica", "", 11)
+
+        pdf.ln(15)
+        pdf.set_font("Helvetica", "I", 8)
             st.download_button("📥 Télécharger PDF", bytes(pdf.output()), f"Liaison_{ref_c}.pdf")
 
     # ---------------------------------------------------------
