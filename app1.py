@@ -3,37 +3,45 @@ import math
 from PIL import Image
 from fpdf import FPDF
 
-# --- CONFIGURATION ---
+# --- CONFIGURATION DE LA PAGE ---
 st.set_page_config(page_title="FC ELEC - Plateforme Expert", layout="wide")
 
-# --- CLASSE PDF AVEC WHATSAPP ---
+# --- CLASSE PDF PERSONNALISÉE (AVEC WHATSAPP) ---
 class FCELEC_PDF(FPDF):
     def footer(self):
         self.set_y(-15)
         self.set_font("Helvetica", "I", 8)
-        # Votre numéro WhatsApp
+        # Votre numéro WhatsApp en pied de page
         self.cell(0, 10, "FC ELEC - Contact WhatsApp : +212 6 74 53 42 64 - Document conforme NF C 15-100", 0, 0, "C")
 
 # --- SYSTÈME DE SÉCURITÉ ---
 def check_password():
+    def password_entered():
+        if "passwords" in st.secrets:
+            if st.session_state["username"] in st.secrets["passwords"] and \
+               st.session_state["password"] == st.secrets["passwords"][st.session_state["username"]]:
+                st.session_state["password_correct"] = True
+                del st.session_state["password"] 
+                del st.session_state["username"]
+            else:
+                st.session_state["password_correct"] = False
+    
     if "password_correct" not in st.session_state:
         st.image("logoFCELEC.png", width=200)
-        st.title("🔐 Connexion FC ELEC")
-        user = st.text_input("Identifiant")
-        pw = st.text_input("Mot de passe", type="password")
+        st.title("🔐 Accès FC ELEC")
+        st.text_input("Identifiant", key="username")
+        st.text_input("Mot de passe", type="password", key="password")
         if st.button("Se connecter"):
-            if "passwords" in st.secrets and user in st.secrets["passwords"] and pw == st.secrets["passwords"][user]:
-                st.session_state["password_correct"] = True
-                st.rerun()
-            else:
-                st.error("Identifiants incorrects.")
+            password_entered()
+            st.rerun()
         return False
     return True
 
 if check_password():
-    # --- BARRE LATÉRALE ---
+    # --- NAVIGATION LATÉRALE ---
     st.sidebar.image("logoFCELEC.png", use_container_width=True)
-    st.sidebar.markdown("### 🛠️ ESPACE EXPERT")
+    st.sidebar.title("🛠️ MENU EXPERT")
+    st.sidebar.markdown("---")
     
     menu = st.sidebar.radio("SÉLECTIONNER UN MODULE :", [
         "🔌 Liaison Individuelle",
@@ -47,10 +55,10 @@ if check_password():
     ])
 
     # ---------------------------------------------------------
-    # MODULE 1 : LIAISON INDIVIDUELLE (AVEC VOTRE CODE PDF)
+    # MODULE 1 : LIAISON INDIVIDUELLE (VOTRE MODÈLE PDF INCLUS)
     # ---------------------------------------------------------
     if menu == "🔌 Liaison Individuelle":
-        st.title("🔌 Dimensionnement de Liaison")
+        st.title("🔌 Dimensionnement de Liaison (NF C 15-100)")
         
         st.subheader("📋 Identification")
         col_ref1, col_ref2 = st.columns(2)
@@ -77,7 +85,7 @@ if check_password():
 
         delta_u_max_pct = st.select_slider("Chute de tension max (%)", options=[3, 5, 8], value=3)
 
-        # --- CALCULS ---
+        # --- CALCULS TECHNIQUES ---
         V = 230 if "Monophasé" in tension_type else 400
         rho = 0.0225 if nature_cable == "Cuivre" else 0.036
         b = 2 if "Monophasé" in tension_type else 1
@@ -95,11 +103,16 @@ if check_password():
         du_v = (b * rho * longueur * Ib) / S_retenue
         du_pct = (du_v / V) * 100
 
-        st.success(f"Section : **{S_retenue} mm²** | Disjoncteur : **{In} A**")
+        # Affichage des résultats à l'écran
+        st.markdown("### 📊 Résultats")
+        r1, r2, r3 = st.columns(3)
+        r1.metric("Courant Ib", f"{Ib:.2f} A")
+        r2.metric("Protection In", f"{In} A")
+        r3.metric("Section Retenue", f"{S_retenue} mm²")
 
-        # --- VOTRE CODE PDF INTÉGRÉ ---
+        # --- VOTRE CODE PDF (SYNTHÈSE SANS DÉTAILS) ---
         def generate_pdf():
-            pdf = FCELEC_PDF() # Utilise la classe avec footer WhatsApp
+            pdf = FCELEC_PDF()
             pdf.add_page()
             try:
                 pdf.image("logoFCELEC.png", 10, 8, 35)
@@ -150,43 +163,44 @@ if check_password():
             )
 
     # ---------------------------------------------------------
-    # MODULES 2 À 8 (Bilan, Sécurité, PV, Terre...)
+    # MODULE 2 : BILAN DE PUISSANCE
     # ---------------------------------------------------------
     elif menu == "📊 Bilan de Puissance":
-        st.title("📊 Bilan de Puissance")
-        # Logique de bilan de puissance simplifiée
-        st.info("Ajoutez vos circuits pour calculer la puissance totale appelée (Ks/Ku).")
+        st.title("📊 Bilan de Puissance du Tableau")
+        st.info("Module pour calculer la puissance totale appelée (Ku / Ks).")
 
+    # ---------------------------------------------------------
+    # MODULE 3 : SÉCURITÉ & LMAX
+    # ---------------------------------------------------------
     elif menu == "🛡️ Sécurité & Lmax":
-        st.title("🛡️ Sécurité & Longueur Max")
-        # Calcul Lmax
-        sec_l = st.selectbox("Section (mm²)", [1.5, 2.5, 4, 6, 10, 16])
+        st.title("🛡️ Protection Magnétique (Lmax)")
+        st.write("Calcul de la longueur maximale pour garantir le déclenchement du disjoncteur.")
+        sec_l = st.selectbox("Section câble (mm²)", [1.5, 2.5, 4, 6, 10, 16, 25])
         cal_l = st.number_input("Calibre (A)", value=16)
-        l_max = (0.8 * 230 * sec_l) / (0.0225 * 2 * cal_l * 10) # Courbe C
-        st.warning(f"Longueur maximale : {int(l_max)} m")
+        l_max = (0.8 * 230 * sec_l) / (0.0225 * 2 * cal_l * 10)
+        st.warning(f"La longueur maximale recommandée est de **{int(l_max)} mètres**.")
 
-    elif menu == "📉 Correction Cos φ":
-        st.title("📉 Compensation Réactive")
-        st.success("Calcul de batterie de condensateurs pour optimiser la facture.")
-
-    elif menu == "⚡ Mode de Pose (Iz)":
-        st.title("⚡ Facteurs de Correction (Iz)")
-        st.write("Vérification des courants admissibles selon le mode de pose.")
-
-    elif menu == "🚘 Bornes IRVE":
-        st.title("🚘 Mobilité Électrique")
-        st.write("Protection préconisée : Interrupteur Différentiel Type B.")
-
+    # ---------------------------------------------------------
+    # MODULE 7 : SOLAIRE PV
+    # ---------------------------------------------------------
     elif menu == "☀️ Solaire PV":
-        st.title("☀️ Solaire Photovoltaïque")
+        st.title("☀️ Ingénierie Solaire Photovoltaïque")
         nb_p = st.number_input("Nombre de panneaux", min_value=1, value=10)
         p_u = st.number_input("Puissance unitaire (Wp)", value=400)
         st.metric("Puissance Crête Totale", f"{nb_p * p_u / 1000} kWp")
 
+    # ---------------------------------------------------------
+    # MODULE 8 : CALCUL DE TERRE
+    # ---------------------------------------------------------
     elif menu == "📐 Calcul de Terre":
-        st.title("📐 Résistance de Terre")
-        rho = st.number_input("Résistivité du sol (ohm.m)", value=100)
-        st.info(f"Estimation : Pour une terre < 30 ohms, adaptez le nombre de piquets.")
+        st.title("📐 Résistance de la Prise de Terre")
+        rho_sol = st.number_input("Résistivité du sol (Ω.m)", value=100)
+        st.info("Formule : R = Rho / L (pour un piquet vertical).")
+
+    # --- AUTRES MODULES (PLACEHOLDERS) ---
+    else:
+        st.title(f"{menu}")
+        st.write("Module en cours de développement technique.")
 
     # --- DÉCONNEXION ---
     st.sidebar.markdown("---")
